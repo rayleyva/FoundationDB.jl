@@ -10,8 +10,10 @@ function unpack(key)
 	
 end
 
-function range(t)
-	
+#Returns a range of keyspace containing all tuples having this one as a prefix
+function range(t...)
+	p = pack(t...)
+    return ([p,[0x00]], [p,[0xff]])
 end
 
 function _flat(A)

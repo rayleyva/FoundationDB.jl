@@ -6,8 +6,14 @@ function pack(t...)
     _flat([_encode(x) for x in t])
 end
 
-function unpack(key)
-	
+function unpack(v::Array{Uint8})
+	pos = 1
+    res = Any[]
+    while pos <= length(v)
+        r, pos = _decode(v, pos)
+        push!(res, r)
+    end
+    return tuple(res)
 end
 
 #Returns a range of keyspace containing all tuples having this one as a prefix
@@ -21,7 +27,19 @@ function _flat(A)
 end
 
 function _find_terminator(v, position::Int)
-	
+	while true
+        if position > length(v)
+            return position
+        elseif v[position] == 0x00
+            if position == length(v) || v[position+1] != 0xff
+                return position
+            else
+                position += 2
+            end
+        else
+            position += 1
+        end
+    end
 end
 
 function _bisect_left(v, item)
@@ -37,8 +55,43 @@ end
 
 const _size_limits = [<<(BigInt(1),(i*8))-1 for i in 0:8]
 
-function _decode(v, position::Int)
-	
+function _decode(v::Array{Uint8}, position::Int)
+	code = int(v[position])
+    if code == 0
+        return nothing, position+1
+    elseif code == 1
+        done::Int = _find_terminator(v, position+1)
+        ret = Array(Uint8, done-v)
+        for i = position+1:done
+            if v[i] != 0xff || v[i-1] != 0x00
+                push!(ret, i)
+            end
+        end
+        if is_valid_ascii(ret)
+            return ascii(ret), done
+        else
+            return ret, done
+        end
+    elseif code == 2
+        done = _find_terminator(v, position+1)
+        ret = Array(Uint8, done-v)
+        for i = position+1:done
+            if v[i] != 0xff || v[i-1] != 0x00
+                push!(ret, i)
+            end
+        end
+        @assert(is_valid_utf8(ret))
+        return ret, done
+    elseif code >= 20 && code <= 28
+        n = code - 20
+        done = position + n
+        return parseint(bytes2hex(v[position+1:done]),16), done+1
+    elseif code < 20 && code >= 12
+        n = 20 - code
+        done = position + n
+    else
+        throw(FDBException("Unrecognized tuple type."))
+    end
 end
 
 function _encode(v::Nothing)

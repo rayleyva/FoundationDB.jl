@@ -43,7 +43,7 @@ function _encode(v::Array{Uint8})
 end
    
 function _encode(v::UTF8String)
-	
+	return _flat([0x02, [x == 0x00 ? [0x00,0xff] : [x] for x in convert(Array{Uint8}, v)], 0x00])
 end
 
 function _encode(v::Int)

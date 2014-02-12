@@ -1,4 +1,4 @@
-module fdb
+module FoundationDB
 
 global _network_thread_handle = 0
 const global fdb_lib_name = @windows? "fdb_c" : "libfdb_c"
@@ -13,6 +13,16 @@ typealias FDBError Int32
 type FDBException <: Exception
     msg::String
 end
+
+export  api_version,
+        open,
+        create_transaction,
+        get,
+        set,
+        clear,
+        clear_range,
+        commit,
+        enable_trace
 
 include("tuple.jl")
 

@@ -1,4 +1,4 @@
-fdb.jl
+FoundationDB.jl
 =========
 
 Julia bindings for [FoundationDB](http://www.foundationdb.com) key-value store.
@@ -10,13 +10,13 @@ Simple Usage
 
 ```julia
 
-require("fdb.jl")
-fdb.api_version(200)
-fdb.enable_trace()
-d = fdb.open()
-t = fdb.create_transaction(d)
-fdb.set(t, "foo", "bar")
-fdb.commit(t)
-println(fdb.get(t, "foo"))
+using FoundationDB
+api_version(200)
+enable_trace()
+d = open()
+t = create_transaction(d)
+set(t, "foo", "bar")
+commit(t)
+println(get(t, "foo"))
 
 ```

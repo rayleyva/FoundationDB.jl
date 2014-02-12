@@ -2,8 +2,8 @@ export 	pack,
 		unpack,
 		range
 
-function pack(t)
-    return _encode(t)
+function pack(t...)
+    _flat([_encode(x) for x in t])
 end
 
 function unpack(key)

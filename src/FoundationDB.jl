@@ -7,7 +7,6 @@ const global fdb_lib_header_version = 200
 global _network_thread_handle = 0
 global _network_is_running = false
 
-
 typealias Future Ptr{Void}
 typealias Cluster Ptr{Void}
 typealias Database Ptr{Void}

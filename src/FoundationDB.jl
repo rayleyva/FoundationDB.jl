@@ -16,7 +16,17 @@ type FDBException <: Exception
     msg::String
 end
 
-export  api_version,
+export  #Types
+		Future,
+		Cluster,
+		Darabase,
+		Transaction,
+		FDBError,
+		Key,
+		Value,
+
+		# Methods
+		api_version,
         open,
         create_transaction,
         get,

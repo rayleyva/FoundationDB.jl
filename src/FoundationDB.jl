@@ -9,6 +9,8 @@ typealias Cluster Ptr{Void}
 typealias Database Ptr{Void}
 typealias Transaction Ptr{Void}
 typealias FDBError Int32
+typealias Key Union(Array{Uint8}, ASCIIString)
+typealias Value Union(Array {Uint8}, ASCIIString)
 
 type FDBException <: Exception
     msg::String
@@ -69,7 +71,7 @@ function create_transaction(d::Database)
     convert(Transaction, out_ptr[1])
 end    
 
-function get(tr::Transaction, key::ASCIIString)
+function get(tr::Transaction, key::Key)
     f = ccall( (:fdb_transaction_get, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool), tr, key, length(key), false )
     out_present = Bool[0]
     out_value = Array(Ptr{Uint8}, 1)
@@ -86,15 +88,15 @@ function get(tr::Transaction, key::ASCIIString)
     end
 end
 
-function set(tr::Transaction, key::String, value::String)
+function set(tr::Transaction, key::Key, value::Value)
     ccall( (:fdb_transaction_set, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr, bytestring(key), length(key), bytestring(value), length(value))
 end
 
-function clear(tr::Transaction, key::String)
+function clear(tr::Transaction, key::Key)
 	ccall( (:fdb_transaction_clear, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint), tr, bytestring(key), length(key))
 end
 
-function clear_range(tr::Transaction, begin_key::String, end_key::String)
+function clear_range(tr::Transaction, begin_key::Key, end_key::Key)
 	ccall( (:fdb_transaction_clear_range, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr, bytestring(begin_key), length(begin_key), bytestring(end_key), length(end_key))
 end
 

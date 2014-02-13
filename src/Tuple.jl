@@ -6,6 +6,10 @@ function pack(t...)
     _flat([_encode(x) for x in t])
 end
 
+function unpack(v::ASCIIString)
+	return unpack([convert(Uint8, c) for c in v])
+end
+
 function unpack(v::Array{Uint8})
 	pos = 1
     res = Any[]

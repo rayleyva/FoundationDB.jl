@@ -46,10 +46,12 @@ export  #Types
         create_transaction,
         get,
 		get_range,
+		get_range_startswith,
 		get_key,
         set,
         clear,
         clear_range,
+		clear_range_startswith,
         commit,
         enable_trace,
 		
@@ -137,6 +139,10 @@ function get_range(tr::Transaction, begin_key::Key, end_key::Key, limit::Int = 0
 	return _get_range(tr, first_greater_or_equal(begin_key), first_greater_or_equal(end_key), limit, reverse)
 end
 
+function get_range_startswith(tr::Transaction, prefix::Key)
+	return get_range(tr, prefix, strinc(prefix))
+end
+
 function get_key(tr::Transaction, ks::KeySelector)
 	f = ccall( (:fdb_transaction_get_key, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Bool), tr, ks.reference, length(ks.reference), ks.or_equal, ks.offset, false)
 	out_key = Array(Ptr{Uint8}, 1)
@@ -158,6 +164,10 @@ end
 
 function clear_range(tr::Transaction, begin_key::Key, end_key::Key)
 	ccall( (:fdb_transaction_clear_range, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr, bytestring(begin_key), length(begin_key), bytestring(end_key), length(end_key))
+end
+
+function clear_range_startswith(tr::Transaction, prefix::Key)
+	clear_range(tr, prefix, strinc(prefix))
 end
 
 function commit(tr::Transaction)
@@ -324,6 +334,36 @@ function _shutdown()
         pthread_return_code = ccall( (:pthread_join, "libpthread"), Int32, (Clonglong, Ptr{Ptr{Void}}), _network_thread_handle, out_ptr)
     end
     )
+end
+
+function strinc(k::Key)
+	if length(k) == 0
+		throw(FDBException("Key must contain at least one byte not equal to 0xff."))
+	end
+	
+	k = [convert(Uint8, i) for i in k]
+	
+	while true
+		if k[end] == 0xff
+			pop!(k)
+		else
+			break
+		end
+	end
+		
+	if length(k) == 0
+		throw(FDBException("Key must contain at least one byte not equal to 0xff."))
+	end
+	
+	k = _flat([k[1:end-1], convert(Uint8,k[end]+1)])
+	if length(k) == 1
+		k = [k]
+	end
+	if is_valid_ascii(k)
+		return bytestring(k)
+	else
+		return k
+	end
 end
 
 end

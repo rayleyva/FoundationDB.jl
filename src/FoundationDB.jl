@@ -16,6 +16,12 @@ type FDBException <: Exception
     msg::String
 end
 
+type KeySelector
+	reference::Key
+	or_equal::Bool
+	offset::Int
+end
+
 export  #Types
 		Future,
 		Cluster,
@@ -24,17 +30,25 @@ export  #Types
 		FDBError,
 		Key,
 		Value,
+		KeySelector,
 
 		# Methods
 		api_version,
         open,
         create_transaction,
         get,
+		get_key,
         set,
         clear,
         clear_range,
         commit,
-        enable_trace
+        enable_trace,
+		
+		#KeySelectors
+		last_less_than,
+		last_less_or_equal,
+		first_greater_than,
+		first_greater_or_equal
 
 include("Tuple.jl")
 
@@ -98,6 +112,17 @@ function get(tr::Transaction, key::Key)
     end
 end
 
+function get_key(tr::Transaction, ks::KeySelector)
+	f = ccall( (:fdb_transaction_get_key, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Bool), tr, ks.reference, length(ks.reference), ks.or_equal, ks.offset, false)
+	out_key = Array(Ptr{Uint8}, 1)
+	out_key_length = Cint[0]
+	block_until_ready(f)
+	@check_error ccall( (:fdb_future_get_key, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Uint8}}, Ptr{Cint}), f, out_key, out_key_length)
+	ans = bytestring(pointer_to_array(out_key[1], int64(out_key_length[1]), false))
+	destroy(f)
+	ans
+end
+
 function set(tr::Transaction, key::Key, value::Value)
     ccall( (:fdb_transaction_set, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr, bytestring(key), length(key), bytestring(value), length(value))
 end
@@ -119,6 +144,28 @@ end
 
 function enable_trace()
     @check_error ccall( (:fdb_network_set_option, fdb_lib_name), Int32, (Int32, Ptr{Void}, Int32), 30, C_NULL, 0)
+end
+
+##############################################################################################################################
+
+# Convenience methods for common KeySelectors
+
+##############################################################################################################################
+
+function last_less_than(k::Key)
+	return KeySelector(k, false, 0)
+end
+
+function last_less_or_equal(k::Key)
+	return KeySelector(k, true, 0)
+end
+
+function first_greater_than(k::Key)
+	return KeySelector(k, true, 1)
+end
+
+function first_greater_or_equal(k::Key)
+	return KeySelector(k, false, 1)
 end
 
 ##############################################################################################################################

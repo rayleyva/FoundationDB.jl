@@ -22,49 +22,49 @@ type FDBException <: Exception
 end
 
 type KeySelector
-	reference::Key
-	or_equal::Bool
-	offset::Int
+    reference::Key
+    or_equal::Bool
+    offset::Int
 end
 
 type KeyValue
-	k::Key
-	v::Value
+    k::Key
+    v::Value
 end
 
 export  #Types
-		Future,
-		Cluster,
-		Darabase,
-		Transaction,
-		FDBError,
-		Key,
-		Value,
-		KeyValue,
-		KeySelector,
+        Future,
+        Cluster,
+        Darabase,
+        Transaction,
+        FDBError,
+        Key,
+        Value,
+        KeyValue,
+        KeySelector,
 
-		# Methods
-		api_version,
+        # Methods
+        api_version,
         open,
         create_transaction,
         get,
-		get_range,
-		get_range_startswith,
-		get_key,
+        get_range,
+        get_range_startswith,
+        get_key,
         set,
         clear,
         clear_range,
-		clear_range_startswith,
+        clear_range_startswith,
         commit,
-		reset,
-		cancel,
+        reset,
+        cancel,
         enable_trace,
-		
-		#KeySelectors
-		last_less_than,
-		last_less_or_equal,
-		first_greater_than,
-		first_greater_or_equal
+        
+        #KeySelectors
+        last_less_than,
+        last_less_or_equal,
+        first_greater_than,
+        first_greater_or_equal
 
 include("Tuple.jl")
 
@@ -84,8 +84,8 @@ macro check_error(expr)
 end
 
 function get_error(code::FDBError)
-	ans = ccall( (:fdb_get_error, fdb_lib_name), Ptr{Uint8}, (Int32,), code )
-	bytestring(ans)
+    ans = ccall( (:fdb_get_error, fdb_lib_name), Ptr{Uint8}, (Int32,), code )
+    bytestring(ans)
 end
 
 ##############################################################################################################################
@@ -95,20 +95,20 @@ end
 ##############################################################################################################################
 
 function api_version(ver::Integer)
-	@check_error ccall( (:fdb_select_api_version_impl, fdb_lib_name), Int32, (Int32, Int32), ver, fdb_lib_header_version )
+    @check_error ccall( (:fdb_select_api_version_impl, fdb_lib_name), Int32, (Int32, Int32), ver, fdb_lib_header_version )
 end
 
 function open(cluster_file="")
     if(!_network_is_running)
         init()
     end
-	if(haskey(clusters_and_databases, cluster_file))
-		return clusters_and_databases[cluster_file][2]
-	end
-	c = create_cluster()
+    if(haskey(clusters_and_databases, cluster_file))
+        return clusters_and_databases[cluster_file][2]
+    end
+    c = create_cluster()
     d = open_database(c)
-	clusters_and_databases[cluster_file] = (c,d)
-	return d
+    clusters_and_databases[cluster_file] = (c,d)
+    return d
 end
 
 function create_transaction(d::Database)
@@ -135,34 +135,34 @@ function get(tr::Transaction, key::Key)
 end
 
 function get_range(tr::Transaction, begin_key::KeySelector, end_key::KeySelector, limit::Int = 0, reverse::Bool = false)
-	return _get_range(tr, begin_key, end_key, limit, reverse)
+    return _get_range(tr, begin_key, end_key, limit, reverse)
 end
 
 function get_range(tr::Transaction, begin_key::Key, end_key::KeySelector, limit::Int = 0, reverse::Bool = false)
-	return _get_range(tr, first_greater_or_equal(begin_key), end_key, limit, reverse)
+    return _get_range(tr, first_greater_or_equal(begin_key), end_key, limit, reverse)
 end
 
 function get_range(tr::Transaction, begin_key::KeySelector, end_key::Key, limit::Int = 0, reverse::Bool = false)
-	return _get_range(tr, begin_key, first_greater_or_equal(end_key), limit, reverse)
+    return _get_range(tr, begin_key, first_greater_or_equal(end_key), limit, reverse)
 end
 
 function get_range(tr::Transaction, begin_key::Key, end_key::Key, limit::Int = 0, reverse::Bool = false)
-	return _get_range(tr, first_greater_or_equal(begin_key), first_greater_or_equal(end_key), limit, reverse)
+    return _get_range(tr, first_greater_or_equal(begin_key), first_greater_or_equal(end_key), limit, reverse)
 end
 
 function get_range_startswith(tr::Transaction, prefix::Key)
-	return get_range(tr, prefix, strinc(prefix))
+    return get_range(tr, prefix, strinc(prefix))
 end
 
 function get_key(tr::Transaction, ks::KeySelector)
-	f = ccall( (:fdb_transaction_get_key, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Bool), tr, ks.reference, length(ks.reference), ks.or_equal, ks.offset, false)
-	out_key = Array(Ptr{Uint8}, 1)
-	out_key_length = Cint[0]
-	block_until_ready(f)
-	@check_error ccall( (:fdb_future_get_key, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Uint8}}, Ptr{Cint}), f, out_key, out_key_length)
-	ans = bytestring(pointer_to_array(out_key[1], int64(out_key_length[1]), false))
-	destroy(f)
-	ans
+    f = ccall( (:fdb_transaction_get_key, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Bool), tr, ks.reference, length(ks.reference), ks.or_equal, ks.offset, false)
+    out_key = Array(Ptr{Uint8}, 1)
+    out_key_length = Cint[0]
+    block_until_ready(f)
+    @check_error ccall( (:fdb_future_get_key, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Uint8}}, Ptr{Cint}), f, out_key, out_key_length)
+    ans = bytestring(pointer_to_array(out_key[1], int64(out_key_length[1]), false))
+    destroy(f)
+    ans
 end
 
 function set(tr::Transaction, key::Key, value::Value)
@@ -170,15 +170,15 @@ function set(tr::Transaction, key::Key, value::Value)
 end
 
 function clear(tr::Transaction, key::Key)
-	ccall( (:fdb_transaction_clear, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint), tr, bytestring(key), length(key))
+    ccall( (:fdb_transaction_clear, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint), tr, bytestring(key), length(key))
 end
 
 function clear_range(tr::Transaction, begin_key::Key, end_key::Key)
-	ccall( (:fdb_transaction_clear_range, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr, bytestring(begin_key), length(begin_key), bytestring(end_key), length(end_key))
+    ccall( (:fdb_transaction_clear_range, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr, bytestring(begin_key), length(begin_key), bytestring(end_key), length(end_key))
 end
 
 function clear_range_startswith(tr::Transaction, prefix::Key)
-	clear_range(tr, prefix, strinc(prefix))
+    clear_range(tr, prefix, strinc(prefix))
 end
 
 function commit(tr::Transaction)
@@ -189,17 +189,17 @@ function commit(tr::Transaction)
 end
 
 function reset(tr::Transaction)
-	f = ccall( (:fdb_transaction_reset, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
-	block_until_ready(f)
-	@check_error get_error(f)
-	destroy(f)
+    f = ccall( (:fdb_transaction_reset, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
+    block_until_ready(f)
+    @check_error get_error(f)
+    destroy(f)
 end
 
 function cancel(tr::Transaction)
-	f = ccall( (:fdb_transaction_cancel, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
-	block_until_ready(f)
-	@check_error get_error(f)
-	destroy(f)
+    f = ccall( (:fdb_transaction_cancel, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
+    block_until_ready(f)
+    @check_error get_error(f)
+    destroy(f)
 end
 
 function enable_trace()
@@ -213,27 +213,27 @@ end
 ##############################################################################################################################
 
 function last_less_than(k::Key)
-	return KeySelector(k, false, 0)
+    return KeySelector(k, false, 0)
 end
 
 function last_less_or_equal(k::Key)
-	return KeySelector(k, true, 0)
+    return KeySelector(k, true, 0)
 end
 
 function first_greater_than(k::Key)
-	return KeySelector(k, true, 1)
+    return KeySelector(k, true, 1)
 end
 
 function first_greater_or_equal(k::Key)
-	return KeySelector(k, false, 1)
+    return KeySelector(k, false, 1)
 end
 
 function +(ks::KeySelector, i::Int)
-	return KeySelector(ks.reference, ks.or_equal, ks.offset+i)
+    return KeySelector(ks.reference, ks.or_equal, ks.offset+i)
 end
 
 function -(ks::KeySelector, i::Int)
-	return KeySelector(ks.reference, ks.or_equal, ks.offset-i)
+    return KeySelector(ks.reference, ks.or_equal, ks.offset-i)
 end
 
 ##############################################################################################################################
@@ -274,9 +274,9 @@ end
 ##############################################################################################################################
 
 function init()
-	@check_error ccall( (:fdb_setup_network, fdb_lib_name), Int32, ())
+    @check_error ccall( (:fdb_setup_network, fdb_lib_name), Int32, ())
 
-	_run_network = cglobal((:fdb_run_network, fdb_lib_name), Ptr{Void} )
+    _run_network = cglobal((:fdb_run_network, fdb_lib_name), Ptr{Void} )
     @windows? (
     begin
         global _network_thread_handle = ccall( :_beginthread, cdecl, Int, (Ptr{Void}, Cuint, Ptr{Void}), _run_network, 0, C_NULL)
@@ -311,63 +311,63 @@ function open_database(c::Cluster)
 end 
 
 function destroy_cluster(c::Cluster)
-	@check_error ccall( (:fdb_cluster_destroy, fdb_lib_name), Int32, (Ptr{Void},), c)
+    @check_error ccall( (:fdb_cluster_destroy, fdb_lib_name), Int32, (Ptr{Void},), c)
 end
 
 function destroy_database(d::Database)
-	@check_error ccall( (:fdb_database_destroy, fdb_lib_name), Int32, (Ptr{Void},), d)
+    @check_error ccall( (:fdb_database_destroy, fdb_lib_name), Int32, (Ptr{Void},), d)
 end
 
 @struct immutable type FDBKeyValueArray_C
-	key::Ptr{Uint8}
-	key_length::Int32
-	value::Ptr{Uint8}
-	value_length::Int32	
+    key::Ptr{Uint8}
+    key_length::Int32
+    value::Ptr{Uint8}
+    value_length::Int32 
 end align_packmax(4)
 
 function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector, limit::Int, reverse::Bool)
-	#omg
-	mode = limit > 0 ? 0 : -2
-	f = ccall( (:fdb_transaction_get_range, fdb_lib_name), Ptr{Void}, 
-	(Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Ptr{Uint8}, Cint, Bool, Cint, Cint, Cint, Cint, Cint, Bool, Bool),
-	tr, begin_ks.reference, length(begin_ks.reference), begin_ks.or_equal, begin_ks.offset, 
-	end_ks.reference, length(end_ks.reference), end_ks.or_equal, end_ks.offset, limit, 0, mode, 0, false, reverse)
-	
-	out_kvs = Array(Ptr{Uint8}, 1)
-	out_count = Cint[0]
-	out_more = Bool[0]
-	block_until_ready(f)
-	@check_error ccall( (:fdb_future_get_keyvalue_array, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Uint8}}, Ptr{Cint}, Ptr{Bool}), f, out_kvs, out_count, out_more)
-		
-	ret = KeyValue[]
-	
-	if out_count[1] == 0
-		destroy(f)
-		return ret
-	end
-	
-	println(out_count[1])
-		
-	kvs = IOBuffer(pointer_to_array(out_kvs[1], 24*out_count[1]))		
-		
-	for i = 1:out_count[1]
-		seek(kvs, (i-1)*24)
-		kv = StrPack.unpack(kvs, FDBKeyValueArray_C)
-		push!(ret, KeyValue(bytestring(pointer_to_array(kv.key, int64(kv.key_length))), bytestring(pointer_to_array(kv.value, int64(kv.value_length)))))
-	end
-	
-	destroy(f)
-	return ret
-	
+    #omg
+    mode = limit > 0 ? 0 : -2
+    f = ccall( (:fdb_transaction_get_range, fdb_lib_name), Ptr{Void}, 
+    (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Ptr{Uint8}, Cint, Bool, Cint, Cint, Cint, Cint, Cint, Bool, Bool),
+    tr, begin_ks.reference, length(begin_ks.reference), begin_ks.or_equal, begin_ks.offset, 
+    end_ks.reference, length(end_ks.reference), end_ks.or_equal, end_ks.offset, limit, 0, mode, 0, false, reverse)
+    
+    out_kvs = Array(Ptr{Uint8}, 1)
+    out_count = Cint[0]
+    out_more = Bool[0]
+    block_until_ready(f)
+    @check_error ccall( (:fdb_future_get_keyvalue_array, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Uint8}}, Ptr{Cint}, Ptr{Bool}), f, out_kvs, out_count, out_more)
+        
+    ret = KeyValue[]
+    
+    if out_count[1] == 0
+        destroy(f)
+        return ret
+    end
+    
+    println(out_count[1])
+        
+    kvs = IOBuffer(pointer_to_array(out_kvs[1], 24*out_count[1]))       
+        
+    for i = 1:out_count[1]
+        seek(kvs, (i-1)*24)
+        kv = StrPack.unpack(kvs, FDBKeyValueArray_C)
+        push!(ret, KeyValue(bytestring(pointer_to_array(kv.key, int64(kv.key_length))), bytestring(pointer_to_array(kv.value, int64(kv.value_length)))))
+    end
+    
+    destroy(f)
+    return ret
+    
 end
 
 function _shutdown()
-	for (c,d) in values(clusters_and_databases)
-		destroy_database(d)
-		destroy_cluster(c)
-	end
-	
-	@check_error ccall( (:fdb_stop_network, fdb_lib_name), Int32, ())
+    for (c,d) in values(clusters_and_databases)
+        destroy_database(d)
+        destroy_cluster(c)
+    end
+    
+    @check_error ccall( (:fdb_stop_network, fdb_lib_name), Int32, ())
 
     @windows? (
     begin
@@ -383,33 +383,33 @@ function _shutdown()
 end
 
 function strinc(k::Key)
-	if length(k) == 0
-		throw(FDBException("Key must contain at least one byte not equal to 0xff."))
-	end
-	
-	k = [convert(Uint8, i) for i in k]
-	
-	while true
-		if k[end] == 0xff
-			pop!(k)
-		else
-			break
-		end
-	end
-		
-	if length(k) == 0
-		throw(FDBException("Key must contain at least one byte not equal to 0xff."))
-	end
-	
-	k = _flat([k[1:end-1], convert(Uint8,k[end]+1)])
-	if length(k) == 1
-		k = [k]
-	end
-	if is_valid_ascii(k)
-		return bytestring(k)
-	else
-		return k
-	end
+    if length(k) == 0
+        throw(FDBException("Key must contain at least one byte not equal to 0xff."))
+    end
+    
+    k = [convert(Uint8, i) for i in k]
+    
+    while true
+        if k[end] == 0xff
+            pop!(k)
+        else
+            break
+        end
+    end
+        
+    if length(k) == 0
+        throw(FDBException("Key must contain at least one byte not equal to 0xff."))
+    end
+    
+    k = _flat([k[1:end-1], convert(Uint8,k[end]+1)])
+    if length(k) == 1
+        k = [k]
+    end
+    if is_valid_ascii(k)
+        return bytestring(k)
+    else
+        return k
+    end
 end
 
 end

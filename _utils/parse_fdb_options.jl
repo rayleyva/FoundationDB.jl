@@ -1,4 +1,4 @@
-using LightXML	
+using LightXML  
 
 options_location = ARGS[1]
 output_location = ARGS[2]

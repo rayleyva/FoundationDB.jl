@@ -1,17 +1,17 @@
-export 	pack,
-		unpack,
-		range
+export  pack,
+        unpack,
+        range
 
 function pack(t...)
     _flat([_encode(x) for x in t])
 end
 
 function unpack(v::ASCIIString)
-	return unpack([convert(Uint8, c) for c in v])
+    return unpack([convert(Uint8, c) for c in v])
 end
 
 function unpack(v::Array{Uint8})
-	pos = 1
+    pos = 1
     res = Any[]
     while pos <= length(v)
         r, pos = _decode(v, pos)
@@ -22,7 +22,7 @@ end
 
 #Returns a range of keyspace containing all tuples having this one as a prefix
 function range(t...)
-	p = pack(t...)
+    p = pack(t...)
     return ([p,[0x00]], [p,[0xff]])
 end
 
@@ -31,7 +31,7 @@ function _flat(A)
 end
 
 function _find_terminator(v, position::Int)
-	while true
+    while true
         if position > length(v)
             return position
         elseif v[position] == 0x00
@@ -60,7 +60,7 @@ end
 const _size_limits = [<<(BigInt(1),(i*8))-1 for i in 0:8]
 
 function _decode(v::Array{Uint8}, position::Int)
-	code = int(v[position])
+    code = int(v[position])
     if code == 0
         return nothing, position+1
     elseif code == 1
@@ -93,26 +93,26 @@ function _decode(v::Array{Uint8}, position::Int)
     elseif code < 20 && code >= 12
         n = 20 - code
         done = position + n
-		return parseint(bytes2hex(v[position+1:done]),16)-_size_limits[n+1], done+1
+        return parseint(bytes2hex(v[position+1:done]),16)-_size_limits[n+1], done+1
     else
         throw(FDBException("Unrecognized tuple type."))
     end
 end
 
 function _encode(v::Nothing)
-	0x00
+    0x00
 end
 
 function _encode(v::ASCIIString)
-	return _encode([convert(Uint8, c) for c in v])
+    return _encode([convert(Uint8, c) for c in v])
 end
    
 function _encode(v::Array{Uint8})
-	return _flat([0x01,[x == 0x00 ? [0x00,0xff] : [x] for x in v], 0x00])
+    return _flat([0x01,[x == 0x00 ? [0x00,0xff] : [x] for x in v], 0x00])
 end
    
 function _encode(v::UTF8String)
-	return _flat([0x02, [x == 0x00 ? [0x00,0xff] : [x] for x in convert(Array{Uint8}, v)], 0x00])
+    return _flat([0x02, [x == 0x00 ? [0x00,0xff] : [x] for x in convert(Array{Uint8}, v)], 0x00])
 end
 
 function _encode(v::Int)

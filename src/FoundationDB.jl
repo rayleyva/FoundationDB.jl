@@ -228,6 +228,14 @@ function first_greater_or_equal(k::Key)
 	return KeySelector(k, false, 1)
 end
 
+function +(ks::KeySelector, i::Int)
+	return KeySelector(ks.reference, ks.or_equal, ks.offset+i)
+end
+
+function -(ks::KeySelector, i::Int)
+	return KeySelector(ks.reference, ks.or_equal, ks.offset-i)
+end
+
 ##############################################################################################################################
 
 # Low-level methods on futures (not currently relevant to users, since this binding is currently all-blocking

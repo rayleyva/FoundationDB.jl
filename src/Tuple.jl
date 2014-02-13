@@ -89,6 +89,7 @@ function _decode(v::Array{Uint8}, position::Int)
     elseif code < 20 && code >= 12
         n = 20 - code
         done = position + n
+		return parseint(bytes2hex(v[position+1:done]),16)-_size_limits[n+1], done+1
     else
         throw(FDBException("Unrecognized tuple type."))
     end

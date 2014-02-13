@@ -2,9 +2,11 @@ module FoundationDB
 
 using StrPack
 
-global _network_thread_handle = 0
 const global fdb_lib_name = @windows? "fdb_c" : "libfdb_c"
+const global fdb_lib_header_version = 200
+global _network_thread_handle = 0
 global _network_is_running = false
+
 
 typealias Future Ptr{Void}
 typealias Cluster Ptr{Void}
@@ -13,6 +15,8 @@ typealias Transaction Ptr{Void}
 typealias FDBError Int32
 typealias Key Union(Array{Uint8}, ASCIIString)
 typealias Value Union(Array {Uint8}, ASCIIString)
+
+global clusters_and_databases = Dict{String, (Cluster, Database)}()
 
 type FDBException <: Exception
     msg::String
@@ -92,14 +96,20 @@ end
 ##############################################################################################################################
 
 function api_version(ver::Integer)
-	@check_error ccall( (:fdb_select_api_version_impl, fdb_lib_name), Int32, (Int32, Int32), ver, 200 )
+	@check_error ccall( (:fdb_select_api_version_impl, fdb_lib_name), Int32, (Int32, Int32), ver, fdb_lib_header_version )
 end
 
-function open()
+function open(cluster_file="")
     if(!_network_is_running)
         init()
     end
-    open_database(create_cluster())
+	if(haskey(clusters_and_databases, cluster_file))
+		return clusters_and_databases[cluster_file][2]
+	end
+	c = create_cluster()
+    d = open_database(c)
+	clusters_and_databases[cluster_file] = (c,d)
+	return d
 end
 
 function create_transaction(d::Database)
@@ -275,8 +285,8 @@ function init()
     atexit(_shutdown)
 end
 
-function create_cluster()
-    f = ccall( (:fdb_create_cluster, fdb_lib_name), Ptr{Void}, (Ptr{Void},), C_NULL)
+function create_cluster(cluster_file="")
+    f = ccall( (:fdb_create_cluster, fdb_lib_name), Ptr{Void}, (Ptr{Uint8},), bytestring(cluster_file))
     block_until_ready(f)
     out_ptr = Array(Ptr{Void}, 1)
     @check_error ccall( (:fdb_future_get_cluster, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Void}}), f, out_ptr)
@@ -292,6 +302,14 @@ function open_database(c::Cluster)
     destroy(f)
     convert(Database, out_ptr[1])
 end 
+
+function destroy_cluster(c::Cluster)
+	@check_error ccall( (:fdb_cluster_destroy, fdb_lib_name), Int32, (Ptr{Void},), c)
+end
+
+function destroy_database(d::Database)
+	@check_error ccall( (:fdb_database_destroy, fdb_lib_name), Int32, (Ptr{Void},), d)
+end
 
 @struct immutable type FDBKeyValueArray_C
 	key::Ptr{Uint8}
@@ -337,6 +355,11 @@ function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector,
 end
 
 function _shutdown()
+	for (c,d) in values(clusters_and_databases)
+		destroy_database(d)
+		destroy_cluster(c)
+	end
+	
 	@check_error ccall( (:fdb_stop_network, fdb_lib_name), Int32, ())
 
     @windows? (

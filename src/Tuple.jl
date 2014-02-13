@@ -61,27 +61,27 @@ function _decode(v::Array{Uint8}, position::Int)
         return nothing, position+1
     elseif code == 1
         done::Int = _find_terminator(v, position+1)
-        ret = Array(Uint8, done-v)
-        for i = position+1:done
+        ret = Uint8[]
+        for i = position+1:done-1
             if v[i] != 0xff || v[i-1] != 0x00
-                push!(ret, i)
+                push!(ret, v[i])
             end
         end
         if is_valid_ascii(ret)
-            return ascii(ret), done
+            return ascii(ret), done+1
         else
-            return ret, done
+            return ret, done+1
         end
     elseif code == 2
         done = _find_terminator(v, position+1)
-        ret = Array(Uint8, done-v)
-        for i = position+1:done
+        ret = Uint8[]
+        for i = position+1:done-1
             if v[i] != 0xff || v[i-1] != 0x00
-                push!(ret, i)
+                push!(ret, v[i])
             end
         end
         @assert(is_valid_utf8(ret))
-        return ret, done
+        return utf8(ret), done+1
     elseif code >= 20 && code <= 28
         n = code - 20
         done = position + n

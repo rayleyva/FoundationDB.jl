@@ -13,7 +13,7 @@ function unpack(v::Array{Uint8})
         r, pos = _decode(v, pos)
         push!(res, r)
     end
-    return tuple(res)
+    return res
 end
 
 #Returns a range of keyspace containing all tuples having this one as a prefix

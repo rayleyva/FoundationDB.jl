@@ -53,6 +53,8 @@ export  #Types
         clear_range,
 		clear_range_startswith,
         commit,
+		reset,
+		cancel,
         enable_trace,
 		
 		#KeySelectors
@@ -175,6 +177,20 @@ function commit(tr::Transaction)
     block_until_ready(f)
     @check_error get_error(f)
     destroy(f)
+end
+
+function reset(tr::Transaction)
+	f = ccall( (:fdb_transaction_reset, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
+	block_until_ready(f)
+	@check_error get_error(f)
+	destroy(f)
+end
+
+function cancel(tr::Transaction)
+	f = ccall( (:fdb_transaction_cancel, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
+	block_until_ready(f)
+	@check_error get_error(f)
+	destroy(f)
 end
 
 function enable_trace()

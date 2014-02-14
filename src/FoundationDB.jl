@@ -109,6 +109,9 @@ function api_version(ver::Integer)
                             commit,
                             reset,
                             cancel,
+                            get_read_version,
+                            set_read_version,
+                            get_committed_version,
                             enable_trace
                             end))
                             
@@ -182,8 +185,28 @@ function get_key(tr::Transaction, ks::KeySelector)
     ans
 end
 
+function get_read_version(tr::Transaction)
+    f = ccall( (:fdb_transaction_get_read_version, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
+    out_version = Int64[0]
+    block_until_ready(f)
+    @check_error ccall( (:fdb_future_get_version, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Clong}), f, out_version)
+    ans = out_version[1]
+    destroy(f)
+    ans
+end
+
+function get_committed_version(tr::Transaction)
+    out_version = Int64[0]
+    @check_error ccall( (:fdb_transaction_get_committed_version, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Clong}), tr.tpointer, out_version)
+    return out_version[1]
+end
+
 function set(tr::Transaction, key::Key, value::Value)
     ccall( (:fdb_transaction_set, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr.tpointer, bytestring(key), length(key), bytestring(value), length(value))
+end
+
+function set_read_version(tr::Transaction, ver::Int64)
+    f = ccall( (:fdb_transaction_set_read_version, fdb_lib_name), Void, (Ptr{Void}, Clong), tr.tpointer, ver)
 end
 
 function clear(tr::Transaction, key::Key)

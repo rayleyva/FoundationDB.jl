@@ -6,6 +6,7 @@ const global fdb_lib_name = @windows? "fdb_c" : "libfdb_c"
 const global fdb_lib_header_version = 200
 global _network_thread_handle = 0
 global _network_is_running = false
+global session_api_version = 0
 
 typealias Future Ptr{Void}
 
@@ -81,7 +82,17 @@ end
 ##############################################################################################################################
 
 function api_version(ver::Integer)
+    if session_api_version != 0
+        throw(FDBException("API version already set!"))
+    end
+    
+    if ver != 200
+        throw(FDBException("The Julia bindings do not support versions prior to 200."))
+    end
+
     @check_error ccall( (:fdb_select_api_version_impl, fdb_lib_name), Int32, (Int32, Int32), ver, fdb_lib_header_version )
+ 
+    global session_api_version = ver
  
     #Make C API functions visible
     eval(Expr(:toplevel, quote export 

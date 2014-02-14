@@ -426,6 +426,10 @@ function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector,
     
 end
 
+function _atomic_operation(tr::Transaction, code::Int, key::Key, param::Value)
+    ccall( (:fdb_transaction_atomic_operation, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint, Cint), tr.tpointer, bytestring(key), length(key), bytestring(param), length(param), code)
+end
+
 function _shutdown()
     for (c,d) in values(clusters_and_databases)
         destroy_database(d)

@@ -113,6 +113,8 @@ function api_version(ver::Integer)
                             get_read_version,
                             set_read_version,
                             get_committed_version,
+                            add_read_conflict_range,
+                            add_write_conflict_range,
                             enable_trace
                             end))
                             
@@ -219,6 +221,22 @@ end
 
 function clear_range_startswith(tr::Transaction, prefix::Key)
     clear_range(tr, prefix, strinc(prefix))
+end
+
+function add_read_conflict_range(tr::Transaction, begin_key::Key, end_key::Key)
+    @check_error ccall( (:fdb_transaction_add_conflict_range, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint, Cint), tr.tpointer, bytestring(begin_key), length(begin_key), bytestring(end_key), length(end_key), ConflictRangeType["read"][1])
+end
+
+function add_read_conflict_range(tr::Transaction, key::Key)
+    add_read_conflict_range(tr, key, [[convert(Uint8,i) for i in key],[0x00]])
+end
+
+function add_write_conflict_range(tr::Transaction, begin_key::Key, end_key::Key)
+    @check_error ccall( (:fdb_transaction_add_conflict_range, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint, Cint), tr.tpointer, bytestring(begin_key), length(begin_key), bytestring(end_key), length(end_key), ConflictRangeType["write"][1])
+end
+
+function add_write_conflict_range(tr::Transaction, key::Key)
+    add_write_conflict_range(tr, key, [[convert(Uint8,i) for i in key],[0x00]])
 end
 
 function commit(tr::Transaction)

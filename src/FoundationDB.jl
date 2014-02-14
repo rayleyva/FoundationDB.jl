@@ -107,6 +107,7 @@ function api_version(ver::Integer)
                             clear,
                             clear_range,
                             clear_range_startswith,
+                            on_error,
                             commit,
                             reset,
                             cancel,
@@ -237,6 +238,12 @@ end
 
 function add_write_conflict_range(tr::Transaction, key::Key)
     add_write_conflict_range(tr, key, [[convert(Uint8,i) for i in key],[0x00]])
+end
+
+function on_error(tr::Transaction, err::FDBError)
+    f = ccall( (:fdb_transaction_on_error, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Cint), tr.tpointer, err)
+    block_until_ready(f)
+    @check_error get_error(f)
 end
 
 function commit(tr::Transaction)

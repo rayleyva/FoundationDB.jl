@@ -8,9 +8,17 @@ global _network_thread_handle = 0
 global _network_is_running = false
 
 typealias Future Ptr{Void}
-typealias Cluster Ptr{Void}
-typealias Database Ptr{Void}
-typealias Transaction Ptr{Void}
+
+immutable type Cluster 
+    cpointer::Ptr{Void}
+end
+immutable type Database 
+    dpointer::Ptr{Void}
+end
+immutable type Transaction 
+    tpointer::Ptr{Void}
+end
+
 typealias FDBError Int32
 typealias Key Union(Array{Uint8}, ASCIIString)
 typealias Value Union(Array {Uint8}, ASCIIString)
@@ -106,12 +114,12 @@ end
 
 function create_transaction(d::Database)
     out_ptr = Array(Ptr{Void}, 1)
-    @check_error ccall( (:fdb_database_create_transaction, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Void}}), d, out_ptr)
-    convert(Transaction, out_ptr[1])
+    @check_error ccall( (:fdb_database_create_transaction, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Void}}), d.dpointer, out_ptr)
+    return Transaction(out_ptr[1])
 end    
 
 function get(tr::Transaction, key::Key)
-    f = ccall( (:fdb_transaction_get, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool), tr, key, length(key), false )
+    f = ccall( (:fdb_transaction_get, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool), tr.tpointer, key, length(key), false )
     out_present = Bool[0]
     out_value = Array(Ptr{Uint8}, 1)
     out_value_length = Cint[0]
@@ -148,7 +156,7 @@ function get_range_startswith(tr::Transaction, prefix::Key)
 end
 
 function get_key(tr::Transaction, ks::KeySelector)
-    f = ccall( (:fdb_transaction_get_key, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Bool), tr, ks.reference, length(ks.reference), ks.or_equal, ks.offset, false)
+    f = ccall( (:fdb_transaction_get_key, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Bool), tr.tpointer, ks.reference, length(ks.reference), ks.or_equal, ks.offset, false)
     out_key = Array(Ptr{Uint8}, 1)
     out_key_length = Cint[0]
     block_until_ready(f)
@@ -159,15 +167,15 @@ function get_key(tr::Transaction, ks::KeySelector)
 end
 
 function set(tr::Transaction, key::Key, value::Value)
-    ccall( (:fdb_transaction_set, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr, bytestring(key), length(key), bytestring(value), length(value))
+    ccall( (:fdb_transaction_set, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr.tpointer, bytestring(key), length(key), bytestring(value), length(value))
 end
 
 function clear(tr::Transaction, key::Key)
-    ccall( (:fdb_transaction_clear, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint), tr, bytestring(key), length(key))
+    ccall( (:fdb_transaction_clear, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint), tr.tpointer, bytestring(key), length(key))
 end
 
 function clear_range(tr::Transaction, begin_key::Key, end_key::Key)
-    ccall( (:fdb_transaction_clear_range, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr, bytestring(begin_key), length(begin_key), bytestring(end_key), length(end_key))
+    ccall( (:fdb_transaction_clear_range, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint), tr.tpointer, bytestring(begin_key), length(begin_key), bytestring(end_key), length(end_key))
 end
 
 function clear_range_startswith(tr::Transaction, prefix::Key)
@@ -175,21 +183,21 @@ function clear_range_startswith(tr::Transaction, prefix::Key)
 end
 
 function commit(tr::Transaction)
-    f = ccall( (:fdb_transaction_commit, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
+    f = ccall( (:fdb_transaction_commit, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
     block_until_ready(f)
     @check_error get_error(f)
     destroy(f)
 end
 
 function reset(tr::Transaction)
-    f = ccall( (:fdb_transaction_reset, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
+    f = ccall( (:fdb_transaction_reset, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
     block_until_ready(f)
     @check_error get_error(f)
     destroy(f)
 end
 
 function cancel(tr::Transaction)
-    f = ccall( (:fdb_transaction_cancel, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr)
+    f = ccall( (:fdb_transaction_cancel, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
     block_until_ready(f)
     @check_error get_error(f)
     destroy(f)
@@ -291,24 +299,24 @@ function create_cluster(cluster_file="")
     out_ptr = Array(Ptr{Void}, 1)
     @check_error ccall( (:fdb_future_get_cluster, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Void}}), f, out_ptr)
     destroy(f)
-    convert(Cluster, out_ptr[1])
+    return Cluster(out_ptr[1])
 end
 
 function open_database(c::Cluster)
-    f = ccall( (:fdb_cluster_create_database, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint), c, bytestring("DB"), 2)
+    f = ccall( (:fdb_cluster_create_database, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint), c.cpointer, bytestring("DB"), 2)
     block_until_ready(f)
     out_ptr = Array(Ptr{Void}, 1)
     @check_error ccall( (:fdb_future_get_database, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Void}}), f, out_ptr)
     destroy(f)
-    convert(Database, out_ptr[1])
+    return Database(out_ptr[1])
 end 
 
 function destroy_cluster(c::Cluster)
-    @check_error ccall( (:fdb_cluster_destroy, fdb_lib_name), Int32, (Ptr{Void},), c)
+    @check_error ccall( (:fdb_cluster_destroy, fdb_lib_name), Int32, (Ptr{Void},), c.cpointer)
 end
 
 function destroy_database(d::Database)
-    @check_error ccall( (:fdb_database_destroy, fdb_lib_name), Int32, (Ptr{Void},), d)
+    @check_error ccall( (:fdb_database_destroy, fdb_lib_name), Int32, (Ptr{Void},), d.dpointer)
 end
 
 @struct immutable type FDBKeyValueArray_C
@@ -323,7 +331,7 @@ function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector,
     mode = limit > 0 ? 0 : -2
     f = ccall( (:fdb_transaction_get_range, fdb_lib_name), Ptr{Void}, 
     (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Ptr{Uint8}, Cint, Bool, Cint, Cint, Cint, Cint, Cint, Bool, Bool),
-    tr, begin_ks.reference, length(begin_ks.reference), begin_ks.or_equal, begin_ks.offset, 
+    tr.tpointer, begin_ks.reference, length(begin_ks.reference), begin_ks.or_equal, begin_ks.offset, 
     end_ks.reference, length(end_ks.reference), end_ks.or_equal, end_ks.offset, limit, 0, mode, 0, false, reverse)
     
     out_kvs = Array(Ptr{Uint8}, 1)

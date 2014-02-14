@@ -32,15 +32,7 @@ type KeyValue
     v::Value
 end
 
-export  #Types
-        Future,
-        Cluster,
-        Darabase,
-        Transaction,
-        FDBError,
-        Key,
-        Value,
-        KeyValue,
+export  #Type constructors
         KeySelector,
 
         # Methods
@@ -96,6 +88,7 @@ end
 
 function api_version(ver::Integer)
     @check_error ccall( (:fdb_select_api_version_impl, fdb_lib_name), Int32, (Int32, Int32), ver, fdb_lib_header_version )
+    include("generated.jl")
 end
 
 function open(cluster_file="")
@@ -125,7 +118,7 @@ function get(tr::Transaction, key::Key)
     block_until_ready(f)
     @check_error ccall( (:fdb_future_get_value, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Bool}, Ptr{Ptr{Uint8}}, Ptr{Cint}), f, out_present, out_value, out_value_length)
     if(out_present[1])
-        ans = bytestring(pointer_to_array(out_value[1], int64(out_value_length[1]), false))
+        ans = outstr(pointer_to_array(out_value[1], int64(out_value_length[1]), false))
         destroy(f)
         ans
     else
@@ -160,7 +153,7 @@ function get_key(tr::Transaction, ks::KeySelector)
     out_key_length = Cint[0]
     block_until_ready(f)
     @check_error ccall( (:fdb_future_get_key, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Uint8}}, Ptr{Cint}), f, out_key, out_key_length)
-    ans = bytestring(pointer_to_array(out_key[1], int64(out_key_length[1]), false))
+    ans = outstr(pointer_to_array(out_key[1], int64(out_key_length[1]), false))
     destroy(f)
     ans
 end
@@ -353,7 +346,7 @@ function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector,
     for i = 1:out_count[1]
         seek(kvs, (i-1)*24)
         kv = StrPack.unpack(kvs, FDBKeyValueArray_C)
-        push!(ret, KeyValue(bytestring(pointer_to_array(kv.key, int64(kv.key_length))), bytestring(pointer_to_array(kv.value, int64(kv.value_length)))))
+        push!(ret, KeyValue(outstr(pointer_to_array(kv.key, int64(kv.key_length))), outstr(pointer_to_array(kv.value, int64(kv.value_length)))))
     end
     
     destroy(f)
@@ -409,6 +402,16 @@ function strinc(k::Key)
         return bytestring(k)
     else
         return k
+    end
+end
+
+# Makes a copy
+function outstr(k::Array{Uint8})
+    k = bytestring(k)
+    if is_valid_ascii(k)
+        return k
+    else
+        return convert(Array{Uint8}, k)
     end
 end
 

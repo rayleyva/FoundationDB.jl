@@ -6,3 +6,4 @@
 # To regenerate this file, from the top level of a FoundationDB.jl repository checkout,
 # run:
 # $ julia _utils/parse_fdb_options.jl /usr/include/foundationdb/fdb.options src/generated.jl
+

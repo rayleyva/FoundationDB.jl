@@ -42,30 +42,16 @@ end
 
 export  #Type constructors
         KeySelector,
-
-        # Methods
+        
+        #API Version selector
         api_version,
-        open,
-        create_transaction,
-        get,
-        get_range,
-        get_range_startswith,
-        get_key,
-        set,
-        clear,
-        clear_range,
-        clear_range_startswith,
-        commit,
-        reset,
-        cancel,
-        enable_trace,
         
         #KeySelectors
         last_less_than,
         last_less_or_equal,
         first_greater_than,
         first_greater_or_equal
-
+        
 include("Tuple.jl")
 
 ##############################################################################################################################
@@ -96,6 +82,25 @@ end
 
 function api_version(ver::Integer)
     @check_error ccall( (:fdb_select_api_version_impl, fdb_lib_name), Int32, (Int32, Int32), ver, fdb_lib_header_version )
+ 
+    #Make C API functions visible
+    eval(Expr(:toplevel, quote export 
+                            open, 
+                            create_transaction,
+                            get,
+                            get_range,
+                            get_range_startswith,
+                            get_key,
+                            set,
+                            clear,
+                            clear_range,
+                            clear_range_startswith,
+                            commit,
+                            reset,
+                            cancel,
+                            enable_trace
+                            end))
+                            
     include("generated.jl")
 end
 

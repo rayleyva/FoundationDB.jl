@@ -140,8 +140,8 @@ function create_transaction(d::Database)
     return Transaction(out_ptr[1])
 end    
 
-function get(tr::Transaction, key::Key)
-    f = ccall( (:fdb_transaction_get, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool), tr.tpointer, key, length(key), false )
+function get(tr::Transaction, key::Key, snapshot::Bool=false)
+    f = ccall( (:fdb_transaction_get, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool), tr.tpointer, key, length(key), snapshot )
     out_present = Bool[0]
     out_value = Array(Ptr{Uint8}, 1)
     out_value_length = Cint[0]
@@ -157,28 +157,28 @@ function get(tr::Transaction, key::Key)
     end
 end
 
-function get_range(tr::Transaction, begin_key::KeySelector, end_key::KeySelector, limit::Int = 0, reverse::Bool = false)
-    return _get_range(tr, begin_key, end_key, limit, reverse)
+function get_range(tr::Transaction, begin_key::KeySelector, end_key::KeySelector; limit::Int = 0, reverse::Bool = false, snapshot::Bool=false)
+    return _get_range(tr, begin_key, end_key, limit, reverse, snapshot)
 end
 
-function get_range(tr::Transaction, begin_key::Key, end_key::KeySelector, limit::Int = 0, reverse::Bool = false)
-    return _get_range(tr, first_greater_or_equal(begin_key), end_key, limit, reverse)
+function get_range(tr::Transaction, begin_key::Key, end_key::KeySelector; limit::Int = 0, reverse::Bool = false, snapshot::Bool=false)
+    return _get_range(tr, first_greater_or_equal(begin_key), end_key, limit, reverse, snapshot)
 end
 
-function get_range(tr::Transaction, begin_key::KeySelector, end_key::Key, limit::Int = 0, reverse::Bool = false)
-    return _get_range(tr, begin_key, first_greater_or_equal(end_key), limit, reverse)
+function get_range(tr::Transaction, begin_key::KeySelector, end_key::Key; limit::Int = 0, reverse::Bool = false, snapshot::Bool=false)
+    return _get_range(tr, begin_key, first_greater_or_equal(end_key), limit, reverse, snapshot)
 end
 
-function get_range(tr::Transaction, begin_key::Key, end_key::Key, limit::Int = 0, reverse::Bool = false)
-    return _get_range(tr, first_greater_or_equal(begin_key), first_greater_or_equal(end_key), limit, reverse)
+function get_range(tr::Transaction, begin_key::Key, end_key::Key; limit::Int = 0, reverse::Bool = false, snapshot::Bool=false)
+    return _get_range(tr, first_greater_or_equal(begin_key), first_greater_or_equal(end_key), limit, reverse, snapshot)
 end
 
-function get_range_startswith(tr::Transaction, prefix::Key)
-    return get_range(tr, prefix, strinc(prefix))
+function get_range_startswith(tr::Transaction, prefix::Key, snapshot::Bool=false)
+    return get_range(tr, prefix, strinc(prefix), snapshot=snapshot)
 end
 
-function get_key(tr::Transaction, ks::KeySelector)
-    f = ccall( (:fdb_transaction_get_key, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Bool), tr.tpointer, ks.reference, length(ks.reference), ks.or_equal, ks.offset, false)
+function get_key(tr::Transaction, ks::KeySelector, snapshot::Bool=false)
+    f = ccall( (:fdb_transaction_get_key, fdb_lib_name), Ptr{Void}, (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Bool), tr.tpointer, ks.reference, length(ks.reference), ks.or_equal, ks.offset, snapshot)
     out_key = Array(Ptr{Uint8}, 1)
     out_key_length = Cint[0]
     block_until_ready(f)
@@ -390,13 +390,13 @@ end
     value_length::Int32 
 end align_packmax(4)
 
-function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector, limit::Int, reverse::Bool)
+function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector, limit::Int, reverse::Bool, snapshot::Bool = false)
     #omg
     mode = limit > 0 ? StreamingMode["exact"][1] : StreamingMode["want_all"][1]
     f = ccall( (:fdb_transaction_get_range, fdb_lib_name), Ptr{Void}, 
     (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Ptr{Uint8}, Cint, Bool, Cint, Cint, Cint, Cint, Cint, Bool, Bool),
     tr.tpointer, begin_ks.reference, length(begin_ks.reference), begin_ks.or_equal, begin_ks.offset, 
-    end_ks.reference, length(end_ks.reference), end_ks.or_equal, end_ks.offset, limit, 0, mode, 0, false, reverse)
+    end_ks.reference, length(end_ks.reference), end_ks.or_equal, end_ks.offset, limit, 0, mode, 0, snapshot, reverse)
     
     out_kvs = Array(Ptr{Uint8}, 1)
     out_count = Cint[0]

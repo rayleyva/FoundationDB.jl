@@ -54,6 +54,7 @@ export  #Type constructors
         first_greater_or_equal
         
 include("Tuple.jl")
+include("generated.jl")
 
 ##############################################################################################################################
 
@@ -115,7 +116,6 @@ function api_version(ver::Integer)
                             enable_trace
                             end))
                             
-    include("generated.jl")
 end
 
 function open(cluster_file="")
@@ -367,7 +367,7 @@ end align_packmax(4)
 
 function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector, limit::Int, reverse::Bool)
     #omg
-    mode = limit > 0 ? 0 : -2
+    mode = limit > 0 ? StreamingMode["exact"][1] : StreamingMode["want_all"][1]
     f = ccall( (:fdb_transaction_get_range, fdb_lib_name), Ptr{Void}, 
     (Ptr{Void}, Ptr{Uint8}, Cint, Bool, Cint, Ptr{Uint8}, Cint, Bool, Cint, Cint, Cint, Cint, Cint, Bool, Bool),
     tr.tpointer, begin_ks.reference, length(begin_ks.reference), begin_ks.or_equal, begin_ks.offset, 

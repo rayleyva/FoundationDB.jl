@@ -131,55 +131,37 @@ function api_version(ver::Integer)
     syms = [symbol(k) for k in keys(MutationType)] 
     eval(Expr(:toplevel, Expr(:export, syms...)))
     
-    
-    for k in keys(NetworkOption)
-        local s = symbol("set_"*k)
-        if NetworkOption[k][3] == nothing
-            eval(quote
-                $s() = _set_option(NetworkOption[$k][1], wrap_option_param(nothing))
-            end)
-        else
-            eval(quote
-                $s(param::NetworkOption[$k][3]) = _set_option(NetworkOption[$k][1], wrap_option_param(param))
-            end)
+    #Generate functions to set various sorts of options, and make them visible
+    for scope in [(DatabaseOption, Database), (TransactionOption, Transaction), (NetworkOption, nothing)]
+        for k in keys(scope[1])
+            local s = symbol("set_"*k)
+            if scope[2] == nothing
+                if scope[1][k][3] == nothing
+                    eval(quote
+                        $s() = _set_option($scope[1][$k][1], wrap_option_param(nothing))
+                    end)
+                else
+                    eval(quote
+                        $s(param::$scope[1][$k][3]) = _set_option($scope[1][$k][1], wrap_option_param(param))
+                    end)
+                end           
+            else
+                if scope[1][k][3] == nothing
+                    eval(quote
+                        $s(d::$scope[2]) = _set_option(d, $scope[1][$k][1], wrap_option_param(nothing))
+                    end)
+                else
+                    eval(quote
+                        $s(d::$scope[2], param::$scope[1][$k][3]) = _set_option(d, $scope[1][$k][1], wrap_option_param(param))
+                    end)
+                end
+            end
         end
+        
+        syms = [symbol("set_"*k) for k in keys(scope[1])]
+        eval(Expr(:toplevel, Expr(:export, syms...)))
     end
-    
-    syms = [symbol("set_"*k) for k in keys(NetworkOption)]
-    eval(Expr(:toplevel, Expr(:export, syms...)))
-    
-    for k in keys(DatabaseOption)
-        local s = symbol("set_"*k)
-        if DatabaseOption[k][3] == nothing
-            eval(quote
-                $s(d::Database) = _set_option(d, DatabaseOption[$k][1], wrap_option_param(nothing))
-            end)
-        else
-            eval(quote
-                $s(d::Database, param::DatabaseOption[$k][3]) = _set_option(d, DatabaseOption[$k][1], wrap_option_param(param))
-            end)
-        end
-    end
-    
-    syms = [symbol("set_"*k) for k in keys(DatabaseOption)]
-    eval(Expr(:toplevel, Expr(:export, syms...)))
-    
-    for k in keys(TransactionOption)
-        local s = symbol("set_"*k)
-        if TransactionOption[k][3] == nothing
-            eval(quote
-                $s(tr::Transaction) = _set_option(tr, TransactionOption[$k][1], wrap_option_param(nothing))
-            end)
-        else
-            eval(quote
-                $s(tr::Transaction, param::TransactionOption[$k][3]) = _set_option(tr, TransactionOption[$k][1], wrap_option_param(param))
-            end)
-        end
-    end
-    
-    syms = [symbol("set_"*k) for k in keys(TransactionOption)]
-    eval(Expr(:toplevel, Expr(:export, syms...)))
-    
+        
 end
 
 function open(cluster_file="")

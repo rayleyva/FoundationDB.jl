@@ -115,8 +115,7 @@ function api_version(ver::Integer)
             :set_read_version,
             :get_committed_version,
             :add_read_conflict_range,
-            :add_write_conflict_range,
-            :enable_trace]
+            :add_write_conflict_range]
  
     #Make C API functions visible
     eval(Expr(:toplevel, Expr(:export, syms...)))
@@ -131,6 +130,56 @@ function api_version(ver::Integer)
     
     syms = [symbol(k) for k in keys(MutationType)] 
     eval(Expr(:toplevel, Expr(:export, syms...)))
+    
+    
+    for k in keys(NetworkOption)
+        local s = symbol("set_"*k)
+        if NetworkOption[k][3] == nothing
+            eval(quote
+                $s() = _set_option(NetworkOption[$k][1], wrap_option_param(nothing))
+            end)
+        else
+            eval(quote
+                $s(param::NetworkOption[$k][3]) = _set_option(NetworkOption[$k][1], wrap_option_param(param))
+            end)
+        end
+    end
+    
+    syms = [symbol("set_"*k) for k in keys(NetworkOption)]
+    eval(Expr(:toplevel, Expr(:export, syms...)))
+    
+    for k in keys(DatabaseOption)
+        local s = symbol("set_"*k)
+        if DatabaseOption[k][3] == nothing
+            eval(quote
+                $s(d::Database) = _set_option(d, DatabaseOption[$k][1], wrap_option_param(nothing))
+            end)
+        else
+            eval(quote
+                $s(d::Database, param::DatabaseOption[$k][3]) = _set_option(d, DatabaseOption[$k][1], wrap_option_param(param))
+            end)
+        end
+    end
+    
+    syms = [symbol("set_"*k) for k in keys(DatabaseOption)]
+    eval(Expr(:toplevel, Expr(:export, syms...)))
+    
+    for k in keys(TransactionOption)
+        local s = symbol("set_"*k)
+        if TransactionOption[k][3] == nothing
+            eval(quote
+                $s(tr::Transaction) = _set_option(tr, TransactionOption[$k][1], wrap_option_param(nothing))
+            end)
+        else
+            eval(quote
+                $s(tr::Transaction, param::TransactionOption[$k][3]) = _set_option(tr, TransactionOption[$k][1], wrap_option_param(param))
+            end)
+        end
+    end
+    
+    syms = [symbol("set_"*k) for k in keys(TransactionOption)]
+    eval(Expr(:toplevel, Expr(:export, syms...)))
+    
 end
 
 function open(cluster_file="")
@@ -266,21 +315,11 @@ function commit(tr::Transaction)
 end
 
 function reset(tr::Transaction)
-    f = ccall( (:fdb_transaction_reset, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
-    block_until_ready(f)
-    @check_error get_error(f)
-    destroy(f)
+    ccall( (:fdb_transaction_reset, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
 end
 
 function cancel(tr::Transaction)
-    f = ccall( (:fdb_transaction_cancel, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
-    block_until_ready(f)
-    @check_error get_error(f)
-    destroy(f)
-end
-
-function enable_trace()
-    @check_error ccall( (:fdb_network_set_option, fdb_lib_name), Int32, (Int32, Ptr{Void}, Int32), 30, C_NULL, 0)
+    ccall( (:fdb_transaction_cancel, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
 end
 
 ##############################################################################################################################
@@ -442,6 +481,22 @@ function _atomic_operation(tr::Transaction, code::Int, key::Key, param::Value)
     ccall( (:fdb_transaction_atomic_op, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint, Cint), tr.tpointer, bytestring(key), length(key), bytestring(param), length(param), code)
 end
 
+function _set_option(code::Int, param::Array{Uint8})
+    @check_error ccall( (:fdb_network_set_option, fdb_lib_name), Int32, (Int32, Ptr{Uint8}, Int32), code, param, param == C_NULL ? 0 : length(param))
+end
+
+function _set_option(tr::Transaction, code::Int, param::Union(Array{Uint8}, Ptr{None}))
+    @check_error ccall( (:fdb_transaction_set_option, fdb_lib_name), Int32, (Ptr{Void}, Int32, Ptr{Uint8}, Int32), tr.tpointer, code, param, param == C_NULL ? 0 : length(param))
+end
+
+function _set_option(c::Cluster, code::Int, param::Union(Array{Uint8}, Ptr{None}))
+    @check_error ccall( (:fdb_cluster_set_option, fdb_lib_name), Int32, (Ptr{Void}, Int32, Ptr{Uint8}, Int32), c.cpointer, code, param, param == C_NULL ? 0 : length(param))
+end
+
+function _set_option(d::Database, code::Int, param::Union(Array{Uint8}, Ptr{None}))
+    @check_error ccall( (:fdb_database_set_option, fdb_lib_name), Int32, (Ptr{Void}, Int32, Ptr{Uint8}, Int32), d.dpointer, code, param, param == C_NULL ? 0 : length(param))
+end
+
 function _shutdown()
     for (c,d) in values(clusters_and_databases)
         destroy_database(d)
@@ -461,6 +516,31 @@ function _shutdown()
         pthread_return_code = ccall( (:pthread_join, "libpthread"), Int32, (Clonglong, Ptr{Ptr{Void}}), _network_thread_handle, out_ptr)
     end
     )
+end
+
+function wrap_option_param(param::Array{Uint8})
+    return param
+end
+
+function wrap_option_param(param::Nothing)
+    return C_NULL
+end
+
+function wrap_option_param(param::String)
+    return [convert(Uint8, c) for c in bytestring(param)]
+end
+
+@struct immutable type int_param
+    val::Int64
+end align_default :LittleEndian
+
+function wrap_option_param(param::Int64)
+    iostr = IOString()
+    StrPack.pack(iostr, int_param(param))
+    buff = Array(Uint8, 8)
+    seekstart(iostr)
+    readbytes!(iostr, buff)
+    return buff
 end
 
 function strinc(k::Key)

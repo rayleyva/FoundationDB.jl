@@ -56,6 +56,8 @@ export  #Type constructors
 include("Tuple.jl")
 include("generated.jl")
 
+import Base.add
+
 ##############################################################################################################################
 
 # check_error macro, and the function on which it depends
@@ -95,30 +97,40 @@ function api_version(ver::Integer)
  
     global session_api_version = ver
  
+    syms = [:open, 
+            :create_transaction,
+            :get,
+            :get_range,
+            :get_range_startswith,
+            :get_key,
+            :set,
+            :clear,
+            :clear_range,
+            :clear_range_startswith,
+            :on_error,
+            :commit,
+            :reset,
+            :cancel,
+            :get_read_version,
+            :set_read_version,
+            :get_committed_version,
+            :add_read_conflict_range,
+            :add_write_conflict_range,
+            :enable_trace]
+ 
     #Make C API functions visible
-    eval(Expr(:toplevel, quote export 
-                            open, 
-                            create_transaction,
-                            get,
-                            get_range,
-                            get_range_startswith,
-                            get_key,
-                            set,
-                            clear,
-                            clear_range,
-                            clear_range_startswith,
-                            on_error,
-                            commit,
-                            reset,
-                            cancel,
-                            get_read_version,
-                            set_read_version,
-                            get_committed_version,
-                            add_read_conflict_range,
-                            add_write_conflict_range,
-                            enable_trace
-                            end))
-                            
+    eval(Expr(:toplevel, Expr(:export, syms...)))
+                                 
+    #Generate atomic op functions and make them visible                             
+    for k in keys(MutationType)
+        local s = symbol(k)
+        eval(quote
+            $s(tr::Transaction,key::Key,param::Value) = _atomic_operation(tr, MutationType[$k][1], key, param)
+        end)
+    end    
+    
+    syms = [symbol(k) for k in keys(MutationType)] 
+    eval(Expr(:toplevel, Expr(:export, syms...)))
 end
 
 function open(cluster_file="")
@@ -427,7 +439,7 @@ function _get_range(tr::Transaction, begin_ks::KeySelector, end_ks::KeySelector,
 end
 
 function _atomic_operation(tr::Transaction, code::Int, key::Key, param::Value)
-    ccall( (:fdb_transaction_atomic_operation, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint, Cint), tr.tpointer, bytestring(key), length(key), bytestring(param), length(param), code)
+    ccall( (:fdb_transaction_atomic_op, fdb_lib_name), Void, (Ptr{Void}, Ptr{Uint8}, Cint, Ptr{Uint8}, Cint, Cint), tr.tpointer, bytestring(key), length(key), bytestring(param), length(param), code)
 end
 
 function _shutdown()

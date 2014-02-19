@@ -429,15 +429,15 @@ function open_database(c::Cluster)
 end 
 
 function destroy_cluster(c::Cluster)
-    @check_error ccall( (:fdb_cluster_destroy, fdb_lib_name), Int32, (Ptr{Void},), c.cpointer)
+    ccall( (:fdb_cluster_destroy, fdb_lib_name), Int32, (Ptr{Void},), c.cpointer)
 end
 
 function destroy_database(d::Database)
-    @check_error ccall( (:fdb_database_destroy, fdb_lib_name), Int32, (Ptr{Void},), d.dpointer)
+    ccall( (:fdb_database_destroy, fdb_lib_name), Int32, (Ptr{Void},), d.dpointer)
 end
 
 function destroy_transaction(t::Transaction)
-    @check_error ccall( (:fdb_transaction_destroy, fdb_lib_name), Int32, (Ptr{Void},), t.tpointer)
+    ccall( (:fdb_transaction_destroy, fdb_lib_name), Int32, (Ptr{Void},), t.tpointer)
 end
 
 @struct immutable type FDBKeyValueArray_C

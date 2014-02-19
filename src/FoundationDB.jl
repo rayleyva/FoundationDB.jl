@@ -10,13 +10,13 @@ global session_api_version = 0
 
 typealias Future Ptr{Void}
 
-immutable type Cluster 
+type Cluster 
     cpointer::Ptr{Void}
 end
-immutable type Database 
+type Database 
     dpointer::Ptr{Void}
 end
-immutable type Transaction 
+type Transaction 
     tpointer::Ptr{Void}
 end
 
@@ -198,7 +198,9 @@ end
 function create_transaction(d::Database)
     out_ptr = Array(Ptr{Void}, 1)
     @check_error ccall( (:fdb_database_create_transaction, fdb_lib_name), Int32, (Ptr{Void}, Ptr{Ptr{Void}}), d.dpointer, out_ptr)
-    return Transaction(out_ptr[1])
+    t = Transaction(out_ptr[1])
+    finalizer(t, destroy_transaction)
+    return t
 end    
 
 function get(tr::Transaction, key::Key, snapshot::Bool=false)
@@ -432,6 +434,10 @@ end
 
 function destroy_database(d::Database)
     @check_error ccall( (:fdb_database_destroy, fdb_lib_name), Int32, (Ptr{Void},), d.dpointer)
+end
+
+function destroy_transaction(t::Transaction)
+    @check_error ccall( (:fdb_transaction_destroy, fdb_lib_name), Int32, (Ptr{Void},), t.tpointer)
 end
 
 @struct immutable type FDBKeyValueArray_C

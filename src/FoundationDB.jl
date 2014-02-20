@@ -43,6 +43,10 @@ end
 
 export  #Type constructors
         KeySelector,
+        Database,
+        Transaction,
+        Key,
+        Value,
         
         #API Version selector
         api_version,

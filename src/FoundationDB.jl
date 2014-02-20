@@ -80,7 +80,22 @@ end
 
 ##############################################################################################################################
 
-# Currently this is the API
+# transactional macro -- wraps an expression with transactional retry logic
+
+##############################################################################################################################
+
+macro transactional(database, expr)
+    quote
+        local tr = create_transaction($database)
+        ret = $expr
+        commit(tr)
+        ret
+    end
+end
+
+##############################################################################################################################
+
+# "Core" API that calls C functions and isn't metaprogrammed into existence
 
 ##############################################################################################################################
 
@@ -126,6 +141,11 @@ function api_version(ver::Integer)
         eval(quote
             $s(tr::Transaction,key::Key,param::Value) = _atomic_operation(tr, MutationType[$k][1], key, param)
         end)
+        eval(quote
+            function $s(db::Database, key::Key, param::Value)
+                @transactional db _atomic_operation(tr, MutationType[$k][1], key, param)
+            end
+        end)
     end    
     
     syms = [symbol(k) for k in keys(MutationType)] 
@@ -161,7 +181,7 @@ function api_version(ver::Integer)
         syms = [symbol("set_"*k) for k in keys(scope[1])]
         eval(Expr(:toplevel, Expr(:export, syms...)))
     end
-        
+            
 end
 
 function open(cluster_file="")
@@ -304,6 +324,56 @@ end
 
 function cancel(tr::Transaction)
     ccall( (:fdb_transaction_cancel, fdb_lib_name), Ptr{Void}, (Ptr{Void},), tr.tpointer)
+end
+
+##############################################################################################################################
+
+# Database companion methods
+
+##############################################################################################################################
+
+function get(db::Database, key::Key, snapshot::Bool=false)
+    @transactional db get(tr, key, snapshot)
+end
+
+function get_range(db::Database, begin_key::Key, end_key::Key; limit::Int = 0, reverse::Bool = false, snapshot::Bool=false)
+    @transactional db get_range(tr, begin_key, end_key, limit=limit, reverse=reverse, snapshot=snapshot)
+end
+
+function get_range(db::Database, begin_key::KeySelector, end_key::Key; limit::Int = 0, reverse::Bool = false, snapshot::Bool=false)
+    @transactional db get_range(tr, begin_key, end_key, limit=limit, reverse=reverse, snapshot=snapshot)
+end
+
+function get_range(db::Database, begin_key::Key, end_key::KeySelector; limit::Int = 0, reverse::Bool = false, snapshot::Bool=false)
+    @transactional db get_range(tr, begin_key, end_key, limit=limit, reverse=reverse, snapshot=snapshot)
+end
+
+function get_range(db::Database, begin_key::KeySelector, end_key::KeySelector; limit::Int = 0, reverse::Bool = false, snapshot::Bool=false)
+    @transactional db get_range(tr, begin_key, end_key, limit=limit, reverse=reverse, snapshot=snapshot)
+end
+
+function get_range_startswith(db::Database, prefix::Key, snapshot::Bool = false)
+    @transactional db get_range_startswith(tr, prefix, snapshot)
+end
+
+function get_key(db::Database, ks::KeySelector, snapshot::Bool=false)
+    @transactional db get_key(tr, ks, snapshot)
+end
+
+function set(db::Database, key::Key, value::Value)
+    @transactional db set(tr, key, value)
+end
+
+function clear(db::Database, key::Key)
+    @transactional db clear(tr, key)
+end
+
+function clear_range(db::Database, begin_key::Key, end_key::Key)
+    @transactional db clear_range(tr, begin_key, end_key)
+end
+
+function clear_range_startswith(db::Database, prefix::Key)
+    @transactional db clear_range_startswith(tr, prefix)
 end
 
 ##############################################################################################################################
